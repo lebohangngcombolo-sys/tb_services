@@ -1,0 +1,163 @@
+#!/bin/sh
+# ----------------------------------------------------------------------------
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#    https://www.apache.org/licenses/LICENSE-2.0
+# ----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+# Maven Start Up Batch script
+#
+# Required ENV vars:
+# ------------------
+#   JAVA_HOME - location of a JDK home dir
+#
+# Optional ENV vars
+# -----------------
+#   M2_HOME - location of maven2's installed home dir
+#   MAVEN_OPTS - parameters passed to the Java VM when running Maven
+#     e.g. to debug Maven itself, use
+#       set MAVEN_OPTS=-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=8000
+#   MAVEN_SKIP_RC - flag to disable loading of mavenrc files
+# ----------------------------------------------------------------------------
+
+if [ -z "$MAVEN_SKIP_RC" ]; then
+  if [ -f /etc/mavenrc ]; then . /etc/mavenrc; fi
+  if [ -f "$HOME/.mavenrc" ]; then . "$HOME/.mavenrc"; fi
+fi
+
+# OS specific support. $var _must_ be set to either true or false.
+cygwin=false
+darwin=false
+mingw=false
+case "`uname`" in
+  CYGWIN*) cygwin=true ;;
+  MINGW*) mingw=true ;;
+  Darwin*) darwin=true
+    if [ -z "$JAVA_HOME" ]; then
+      if [ -x /usr/libexec/java_home ]; then
+        JAVA_HOME="`/usr/libexec/java_home -v 1.8+`"
+      fi
+    fi
+    ;;
+esac
+
+if [ -z "$JAVA_HOME" ] && [ -n "$JAVA_HOME_OVERRIDE" ]; then
+  JAVA_HOME="$JAVA_HOME_OVERRIDE"
+fi
+
+if [ -z "$JAVA_HOME" ]; then
+  if [ -x /usr/libexec/java_home ]; then
+    JAVA_HOME="`/usr/libexec/java_home -v 1.8+`"
+  fi
+fi
+
+# For Cygwin, ensure paths are in UNIX format before anything is touched.
+if $cygwin; then
+  [ -n "$JAVA_HOME" ] && JAVA_HOME=`cygpath --unix "$JAVA_HOME"`
+fi
+
+# For Migwn, ensure paths are in UNIX format before anything is touched.
+if $mingw; then
+  [ -n "$JAVA_HOME" ] && JAVA_HOME="`(cd "$JAVA_HOME"; pwd)`"
+fi
+
+if [ -z "$JAVA_HOME" ]; then
+  JAVACMD="`which java`"
+  if [ -z "$JAVACMD" ] || [ ! -x "$JAVACMD" ]; then
+    echo "Error: JAVA_HOME is not defined correctly." >&2
+    echo "  We cannot execute $JAVACMD" >&2
+    exit 1
+  fi
+  if [ -n "`$JAVACMD -version 2>&1 | grep 'version \"1\.[0-6]'`" ]; then
+    echo "Error: JAVA_HOME is not defined correctly." >&2
+    exit 1
+  fi
+else
+  JAVACMD="$JAVA_HOME/bin/java"
+  if [ ! -x "$JAVACMD" ]; then
+    JAVACMD="$JAVA_HOME/jre/bin/java"
+  fi
+  if [ ! -x "$JAVACMD" ]; then
+    echo "Error: JAVA_HOME is not defined correctly." >&2
+    echo "  We cannot execute $JAVACMD" >&2
+    exit 1
+  fi
+fi
+
+if [ -z "$JAVA_HOME" ]; then
+  echo "Warning: JAVA_HOME environment variable is not set."
+fi
+
+CLASSWORLDS_LAUNCHER=org.codehaus.plexus.classworlds.launcher.Launcher
+
+# For Cygwin, switch paths to Windows format before running java
+if $cygwin; then
+  [ -n "$M2_HOME" ] && M2_HOME=`cygpath --path --windows "$M2_HOME"`
+  [ -n "$JAVA_HOME" ] && JAVA_HOME=`cygpath --path --windows "$JAVA_HOME"`
+  [ -n "$CLASSWORLDS_JAR" ] && CLASSWORLDS_JAR=`cygpath --path --windows "$CLASSWORLDS_JAR"`
+fi
+
+# traverses directory structure from process work directory to filesystem root
+# first directory with .mvn subdirectory is considered project base directory
+find_maven_basedir() {
+(
+  basedir=`find_file_argument_basedir "$@"`
+  wdir="${basedir}"
+  while [ ! -f "$wdir/.mvn/wrapper/maven-wrapper.properties" ]
+  do
+    wdir=`dirname "$wdir"`
+    if [ "$wdir" = "/" ]; then break; fi
+  done
+  if [ ! -f "$wdir/.mvn/wrapper/maven-wrapper.properties" ]; then return 1; fi
+  echo "$wdir"
+)
+}
+
+find_file_argument_basedir() {
+(
+  basedir=`pwd`
+  first_arg="$1"
+  if [ -f "$first_arg" ]; then
+    first_arg=`cd \`dirname "$first_arg"\`; pwd -P`
+  else
+    first_arg=`cd "$first_arg"; pwd -P`
+  fi
+  while [ "$basedir" != "/" ]; do
+    if [ "$basedir" = "$first_arg" ]; then
+      echo "$basedir"
+      break
+    fi
+    basedir=`dirname "$basedir"`
+  done
+)
+}
+
+maven_basedir=`find_maven_basedir "$@"`
+
+if [ -z "$maven_basedir" ]; then
+  echo "Could not find maven base dir" >&2
+  exit 1
+fi
+
+exec_maven() {
+  if [ -z "$MAVEN_HOME" ]; then
+    MVN_CMD="$JAVACMD"
+  else
+    MVN_CMD="$JAVA_HOME/bin/java"
+  fi
+
+  exec "$JAVACMD" \
+    $MAVEN_OPTS \
+    -Dmaven.multiModuleProjectDirectory="$maven_basedir" \
+    -cp "$maven_basedir/.mvn/wrapper/maven-wrapper.jar" \
+    $CLASSWORLDS_LAUNCHER "$@"
+}
+
+exec_maven "$@"

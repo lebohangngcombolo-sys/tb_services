@@ -1,0 +1,158 @@
+server:
+  port: 8081
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+
+spring:
+  application:
+    name: identity-service
+
+  datasource:
+    url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:5432/tb_identity_db}
+    username: ${IDENTITY_DB_USER:postgres}
+    password: ${IDENTITY_DB_PASSWORD:stenaman}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 2
+      connection-timeout: 5000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+        default_batch_fetch_size: 50
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: identity-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Use JWKS endpoint published by this very service; on startup it
+          # may be served from cache — service self-verifies via the same key.
+          jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+
+tradebridge:
+  observability:
+    service-name: identity-service
+    environment: ${ENVIRONMENT:local}
+    logging:
+      json: true
+    correlation:
+      enabled: true
+
+  security:
+    jwt:
+      issuer: ${JWT_ISSUER:http://localhost:8081}
+      audience: ${JWT_AUDIENCE:tradebridge-clients}
+      jwks-uri: ${JWT_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+      private-key-location: ${JWT_PRIVATE_KEY:classpath:keys/jwt-private.pem}
+      public-key-location: ${JWT_PUBLIC_KEY:classpath:keys/jwt-public.pem}
+      key-id: ${JWT_KEY_ID:tb-key-2026-01}
+      clock-skew: 30s
+    permissions:
+      hierarchy:
+        SUPER_ADMIN: ["ADMIN"]
+        ADMIN: ["KYC_ANALYST", "KYC_SUPERVISOR", "COMPLIANCE_OFFICER", "SUPPORT"]
+        KYC_SUPERVISOR: ["KYC_ANALYST"]
+
+  messaging:
+    outbox:
+      enabled: true
+      poll-interval: 5s
+      batch-size: 100
+      max-attempts: 5
+      topic-per-service: identity.events
+    inbox:
+      enabled: true
+      retention: 30d
+    retry:
+      max-attempts: 5
+      initial-backoff: 1s
+      max-backoff: 30s
+      multiplier: 2.0
+    dlq:
+      enabled: true
+      suffix: ".dlq"
+
+  identity:
+    producer-service-name: identity-service
+    internal-secret: ${INTERNAL_SERVICE_SECRET:${NOTIFICATION_INTERNAL_SECRET:${IDENTITY_INTERNAL_SECRET:local-dev-internal-secret-change-in-prod}}}
+    country-service:
+      base-url: ${COUNTRY_SERVICE_URL:http://localhost:8082}
+      timeout: 3s
+    password:
+      min-length: 12
+      max-length: 128
+      require-uppercase: true
+      require-lowercase: true
+      require-digit: true
+      require-symbol: true
+      forbidden-substrings: ["password", "tradebridge", "123456"]
+    access-token:
+      ttl: 15m
+    refresh-token:
+      ttl: 30d
+      reuse-window: 30s
+    session:
+      max-active-per-user: 10
+      absolute-ttl: 30d
+    verification:
+      otp-ttl: 10m
+      max-attempts: 5
+      resend-cooldown: 60s
+    mfa:
+      totp-issuer: "TradeBridge Africa"
+      totp-period: 30s
+      totp-digits: 6
+      recovery-code-count: 10
+    lockout:
+      threshold: 5
+      window: 15m
+      lock-duration: 15m
+    rate-limit:
+      login-per-minute: 10
+      password-reset-per-minute: 5
+
+# Trust the Gateway-supplied headers only if the request arrived from the Gateway.
+# In production, restrict to the Gateway's IP via ingress rules.
+server.forward-headers-strategy: native

@@ -1,0 +1,11 @@
+templateCode: identity.mfa.otp
+channel: EMAIL
+languageCode: en
+subject: "Your TradeBridge Africa login code"
+body: |
+  <p>Your TradeBridge Africa login verification code is:</p>
+  <p><b style="font-size:24px;letter-spacing:4px;">${otpCode}</b></p>
+  <p>This code expires in ${expiryMinutes} minutes. Never share it with anyone.</p>
+variables:
+  otpCode: "string, 6 digits"
+  expiryMinutes: "string, minutes"

@@ -1,0 +1,211 @@
+
+name: tradebridge-africa
+
+networks:
+  tradebridge:
+    driver: bridge
+
+volumes:
+  kafka-data:
+  redis-data:
+  minio-data:
+
+services:
+
+  # --------------------------------------------------------------
+  # Kafka - KRaft mode (no Zookeeper)
+  # --------------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    pull_policy: never
+    container_name: tradebridge-kafka
+    restart: unless-stopped
+
+    ports:
+      - "9092:9092"
+
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    networks:
+      - tradebridge
+
+  # --------------------------------------------------------------
+  # Kafka topic initialization
+  # --------------------------------------------------------------
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    pull_policy: never
+    container_name: tradebridge-kafka-init
+    restart: "no"
+
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+    entrypoint:
+      - /bin/bash
+      - /scripts/topics-init.sh
+
+    volumes:
+      - ./docker/kafka/topics-init.sh:/scripts/topics-init.sh:ro
+
+    networks:
+      - tradebridge
+
+  # --------------------------------------------------------------
+  # Kafka UI
+  # --------------------------------------------------------------
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    pull_policy: never
+    container_name: tradebridge-kafka-ui
+    restart: unless-stopped
+
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+    ports:
+      - "8089:8080"
+
+    environment:
+      KAFKA_CLUSTERS_0_NAME: tradebridge-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      DYNAMIC_CONFIG_ENABLED: "true"
+
+    networks:
+      - tradebridge
+
+  # --------------------------------------------------------------
+  # Redis 8.2 - Cache, sessions and rate limiting
+  # --------------------------------------------------------------
+  redis:
+    image: redis:8.2-alpine
+    pull_policy: never
+    container_name: tradebridge-redis
+    restart: unless-stopped
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis-data:/data
+
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --save
+      - "60"
+      - "1"
+
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - tradebridge
+
+  # --------------------------------------------------------------
+  # MinIO - KYC documents and object storage
+  # --------------------------------------------------------------
+  minio:
+    image: dappros/minio:RELEASE.2025-09-07T16-13-09Z
+    pull_policy: never
+    container_name: tradebridge-minio
+    restart: unless-stopped
+
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-tradebridge}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-tradebridge-minio-secret}
+      # Development-only key; set MINIO_KMS_SECRET_KEY outside local development.
+      MINIO_KMS_SECRET_KEY: "${MINIO_KMS_SECRET_KEY:-local-key:tradebridge-local-key-32-bytes!!}"
+
+    volumes:
+      - minio-data:/data
+
+    command:
+      - server
+      - /data
+      - --console-address
+      - ":9001"
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O /dev/null http://127.0.0.1:9000/minio/health/ready || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    networks:
+      - tradebridge
+
+  # --------------------------------------------------------------
+  # MinIO bucket initialization
+  # --------------------------------------------------------------
+
+  minio-init:
+    build:
+      context: ./docker/minio
+    image: tradebridge/minio-init:local
+    container_name: tradebridge-minio-init
+    restart: "no"
+
+    depends_on:
+      minio:
+        condition: service_healthy
+
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-tradebridge}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-tradebridge-minio-secret}
+
+    networks:
+      - tradebridge

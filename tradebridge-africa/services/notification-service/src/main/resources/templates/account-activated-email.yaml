@@ -1,0 +1,11 @@
+templateCode: identity.account.activated
+channel: EMAIL
+languageCode: en
+subject: "Welcome to TradeBridge Africa"
+body: |
+  <p>Hi,</p>
+  <p>${message}</p>
+  <p>You can now sign in and continue your onboarding.</p>
+  <p>— TradeBridge Africa</p>
+variables:
+  message: "string"

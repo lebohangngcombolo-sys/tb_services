@@ -1,0 +1,106 @@
+server:
+  port: 8080
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+
+spring:
+  application:
+    name: api-gateway
+
+  main:
+    web-application-type: reactive
+
+  autoconfigure:
+    exclude:
+      # The security-starter registers a servlet-shaped JwtDecoder and
+      # method-security AOP. The Gateway builds its own reactive decoder
+      # in JwtGatewayConfig and does not need servlet security plumbing.
+      - com.tradebridge.security.config.SecurityAutoConfiguration
+      - com.tradebridge.security.config.JwtAutoConfiguration
+      # Servlet correlation filter is guarded, but exclude explicitly for clarity
+      - com.tradebridge.observability.config.ObservabilityAutoConfiguration
+
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 30s
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+
+tradebridge:
+  observability:
+    service-name: api-gateway
+    environment: ${ENVIRONMENT:local}
+    logging:
+      json: true
+
+  gateway:
+    jwt:
+      issuer: ${JWT_ISSUER:http://localhost:8081}
+      audience: ${JWT_AUDIENCE:tradebridge-clients}
+      jwks-uri: ${IDENTITY_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+      clock-skew: 30s
+
+    cors:
+      allowed-origins:
+        - "http://localhost:3000"
+        - "https://app.tradebridge.africa"
+      allowed-methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+      allowed-headers: ["*"]
+      exposed-headers: ["X-Correlation-Id"]
+      allow-credentials: false
+      max-age: 1h
+
+    timeout:
+      connect: 5s
+      response: 30s
+
+    tracing:
+      propagate-correlation-id: true
+      correlation-header: X-Correlation-Id
+
+    rate-limit:
+      login:
+        requests-per-window: 10
+        window: 1m
+      otp:
+        requests-per-window: 5
+        window: 1m
+      password-reset:
+        requests-per-window: 3
+        window: 1m
+      registration:
+        requests-per-window: 5
+        window: 1m
+
+    routes:
+      - id: identity
+        path: /api/v1/identity/**
+        uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+      - id: countries
+        path: /api/v1/countries/**,/api/v1/currencies,/api/v1/languages
+        uri: ${COUNTRY_SERVICE_URL:http://localhost:8082}
+      - id: notifications
+        path: /api/v1/notifications/**
+        uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8083}
+      - id: customers
+        path: /api/v1/customers/**,/api/v1/organizations/**,/api/v1/kyc/**
+        uri: ${CUSTOMER_SERVICE_URL:http://localhost:8084}

@@ -1,0 +1,2 @@
+com.tradebridge.security.config.SecurityAutoConfiguration
+com.tradebridge.security.config.JwtAutoConfiguration

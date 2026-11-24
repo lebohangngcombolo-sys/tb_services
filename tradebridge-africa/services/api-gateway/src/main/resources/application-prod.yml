@@ -1,0 +1,13 @@
+logging:
+  level:
+    com.tradebridge.gateway: INFO
+
+tradebridge:
+  observability:
+    logging:
+      json: true
+  gateway:
+    cors:
+      allowed-origins:
+        - "https://app.tradebridge.africa"
+      allow-credentials: true

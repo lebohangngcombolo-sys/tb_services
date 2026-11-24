@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tb_identity_db
+    username: postgres
+    password: stenaman
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.tradebridge.identity: DEBUG
+    org.springframework.security: INFO
+
+tradebridge:
+  observability:
+    logging:
+      json: false   # human-readable logs locally

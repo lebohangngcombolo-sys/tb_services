@@ -1,0 +1,17 @@
+package com.tradebridge.customer.repository;
+
+import com.tradebridge.customer.domain.CustomerStatusHistory;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.UUID;
+
+@Repository
+public interface CustomerStatusHistoryRepository
+        extends JpaRepository<CustomerStatusHistory, UUID> {
+
+    List<CustomerStatusHistory> findByCustomerIdOrderByChangedAtDesc(UUID customerId);
+
+    List<CustomerStatusHistory> findByOrganizationIdOrderByChangedAtDesc(UUID organizationId);
+}

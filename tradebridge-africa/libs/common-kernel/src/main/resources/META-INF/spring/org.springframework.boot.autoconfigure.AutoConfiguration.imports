@@ -1,0 +1,4 @@
+# TradeBridge common-kernel contributes no auto-configuration yet.
+# This file exists so downstream libraries (security-, messaging-,
+# observability-, validation-starter) can safely concatenate to it
+# without Spring Boot complaining about a missing imports file.

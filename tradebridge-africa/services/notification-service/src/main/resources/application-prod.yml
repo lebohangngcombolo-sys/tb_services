@@ -1,0 +1,19 @@
+spring:
+  jpa:
+    show-sql: false
+  flyway:
+    clean-disabled: true
+
+tradebridge:
+  observability:
+    logging:
+      json: true
+  notification:
+    providers:
+      email:
+        enabled: true
+      sms:
+        enabled: true
+        primary: ${SMS_PRIMARY:africastalking}
+      inapp:
+        enabled: true

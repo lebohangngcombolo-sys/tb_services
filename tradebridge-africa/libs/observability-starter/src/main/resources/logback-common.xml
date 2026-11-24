@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  TradeBridge Africa — shared Logback template.
+  Services include this via logback-spring.xml:
+
+      <include resource="logback-common.xml"/>
+
+  Then define their own <springProperty> overrides for
+  the service name if desired.
+
+  Emits JSON to stdout when TRADEBRIDGE_LOG_JSON=true (default),
+  or plain text when TRADEBRIDGE_LOG_JSON=false (local dev convenience).
+-->
+<included>
+
+    <springProperty scope="context" name="SERVICE_NAME"
+                    source="tradebridge.observability.service-name"
+                    defaultValue="unknown-service"/>
+
+    <springProperty scope="context" name="LOG_JSON"
+                    source="tradebridge.observability.logging.json"
+                    defaultValue="true"/>
+
+    <!-- ============================================ JSON (default) -->
+    <appender name="JSON_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="com.tradebridge.observability.logging.StructuredJsonLayout">
+                <serviceName>${SERVICE_NAME}</serviceName>
+            </layout>
+        </encoder>
+    </appender>
+
+    <!-- ============================================ Plain text (local dev) -->
+    <appender name="PLAIN_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{ISO8601} %-5level [%thread] [%X{correlationId:-}] [%X{traceId:-}] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ============================================ Root logger choice -->
+    <if condition='"true".equals(property("LOG_JSON"))'>
+        <then>
+            <root level="INFO">
+                <appender-ref ref="JSON_STDOUT"/>
+            </root>
+        </then>
+        <else>
+            <root level="INFO">
+                <appender-ref ref="PLAIN_STDOUT"/>
+            </root>
+        </else>
+    </if>
+
+    <!-- ============================================ Loggers that we never want at DEBUG -->
+    <logger name="org.apache.kafka" level="WARN"/>
+    <logger name="org.springframework.kafka" level="WARN"/>
+    <logger name="org.hibernate" level="WARN"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+
+    <!-- ============================================ TradeBridge logger -->
+    <logger name="com.tradebridge" level="INFO"/>
+
+    <!-- ============================================ Security audit (never DEBUG) -->
+    <logger name="SECURITY_AUDIT" level="INFO" additivity="false">
+        <appender-ref ref="JSON_STDOUT"/>
+    </logger>
+
+</included>

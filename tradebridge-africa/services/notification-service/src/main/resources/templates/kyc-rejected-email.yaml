@@ -1,0 +1,13 @@
+templateCode: customer.kyc.rejected
+channel: EMAIL
+languageCode: en
+subject: "Update on your KYC application"
+body: |
+  <p>Hi,</p>
+  <p>${message}</p>
+  <p>Reference: case ${kycCaseId}, decision ${decisionId}.</p>
+  <p>— TradeBridge Africa Compliance</p>
+variables:
+  message: "string"
+  kycCaseId: "string"
+  decisionId: "string"

@@ -1,0 +1,4 @@
+# SDKMAN environment for TradeBridge Africa
+# Activate with: sdk env
+java=24-tem
+maven=3.9.9

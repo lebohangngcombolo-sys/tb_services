@@ -1,0 +1,56 @@
+package com.tradebridge.common.exception;
+
+/**
+ * Central error-code catalogue. Business services may define their own enums
+ * but should map them onto these high-level codes for the API envelope.
+ */
+public enum ErrorCode {
+
+    // 400
+    VALIDATION_ERROR,
+    BAD_REQUEST,
+    MALFORMED_JSON,
+    UNSUPPORTED_MEDIA_TYPE,
+    INVALID_STATE,
+    RATE_LIMIT_EXCEEDED,
+
+    // 401
+    UNAUTHORIZED,
+    INVALID_CREDENTIALS,
+    TOKEN_EXPIRED,
+    TOKEN_INVALID,
+    MFA_REQUIRED,
+    ACCOUNT_LOCKED,
+    ACCOUNT_SUSPENDED,
+
+    // 403
+    FORBIDDEN,
+    INSUFFICIENT_PERMISSIONS,
+    RESOURCE_OWNERSHIP_VIOLATION,
+    SEPARATION_OF_DUTIES_VIOLATION,
+
+    // 404
+    NOT_FOUND,
+    RESOURCE_NOT_FOUND,
+
+    // 409
+    CONFLICT,
+    DUPLICATE_RESOURCE,
+    OPTIMISTIC_LOCK_CONFLICT,
+    STATE_TRANSITION_NOT_ALLOWED,
+
+    // 422
+    UNPROCESSABLE_ENTITY,
+    BUSINESS_RULE_VIOLATION,
+
+    // 429
+    TOO_MANY_REQUESTS,
+
+    // 500
+    INTERNAL_ERROR,
+    DOWNSTREAM_SERVICE_UNAVAILABLE,
+    EVENT_PUBLICATION_FAILED,
+
+    // 503
+    SERVICE_UNAVAILABLE
+}

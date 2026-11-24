@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tb_country_db
+    username: postgres
+    password: stenaman
+  jpa:
+    show-sql: false
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.tradebridge.country: DEBUG
+
+tradebridge:
+  observability:
+    logging:
+      json: false
