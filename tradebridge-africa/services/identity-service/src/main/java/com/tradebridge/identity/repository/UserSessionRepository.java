@@ -1,7 +1,9 @@
 package com.tradebridge.identity.repository;
 
 import com.tradebridge.identity.domain.UserSession;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,6 +23,10 @@ public interface UserSessionRepository extends JpaRepository<UserSession, UUID> 
     List<UserSession> findActiveByUserId(@Param("userId") UUID userId, @Param("now") Instant now);
 
     Optional<UserSession> findByIdAndUserId(UUID id, UUID userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM UserSession s WHERE s.id = :id")
+    Optional<UserSession> findByIdForUpdate(@Param("id") UUID id);
 
     @Modifying
     @Query("UPDATE UserSession s SET s.revokedAt = :when "

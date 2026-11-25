@@ -324,11 +324,26 @@ Other authenticated MFA endpoints:
 | `POST /api/v1/identity/mfa/disable` | Disable MFA with a valid TOTP or recovery code. |
 | `POST /api/v1/identity/mfa/recovery-codes/regenerate` | Replace recovery codes after TOTP verification. |
 | `POST /api/v1/identity/mfa/challenge` | Request an email OTP challenge for an already authenticated user. |
-| `POST /api/v1/identity/mfa/verify` | Verify an email OTP challenge for an already authenticated user. |
+| `POST /api/v1/identity/mfa/verify` | Complete an MFA-enabled login with its challenge ID and a TOTP or recovery code. This route is public but rate-limited; the challenge is single-use and expires after five minutes. |
+| `POST /api/v1/identity/mfa/challenge/verify` | Verify an email OTP challenge for an already authenticated user. |
 
-### Current MFA login limitation
+### Complete an MFA-enabled login
 
-When MFA is enabled, password login currently returns `mfaRequired: true` and a `mfaChallengeId`, but it does not return an access token. The existing challenge and verify endpoints require an authenticated JWT, and verifying a challenge does not issue login tokens. Therefore, a client cannot currently complete an MFA-enabled login through the exposed API. Do not treat the `mfaChallengeId` as an access token or attempt to call protected APIs with it.
+When MFA is enabled, password login returns `mfaRequired: true`, a `mfaChallengeId`, and no access or refresh tokens. Complete the login by posting the challenge ID and either a six-digit TOTP code or an unused recovery code:
+
+```http
+POST /api/v1/identity/mfa/verify
+Content-Type: application/json
+```
+
+```json
+{
+  "challengeId": "01a2139c-feff-7ed9-b8b2-614ef5f4d08f",
+  "code": "123456"
+}
+```
+
+On success, the response contains the access and refresh tokens. The five-minute challenge is bound to the temporary session created during password login; successful verification revokes that session and issues tokens for a new session. Failed or expired challenges do not issue tokens. The endpoint is public only for this explicit POST route and remains covered by the Gateway's OTP rate limit. Do not use the challenge ID as a bearer token.
 
 ## 8. Password recovery and change
 
@@ -404,7 +419,7 @@ Errors use a corresponding error envelope with `success: false`, a machine-reada
 - `ACCOUNT_SUSPENDED`: the account is suspended.
 - `TOKEN_INVALID` / `TOKEN_EXPIRED`: invalid, revoked, reused, or expired token.
 
-The Gateway's public-route allowlist includes registration, email verification, resend, login, refresh, forgot-password, and reset-password. Other identity routes require a valid access JWT. Identity Service also enforces authentication on protected routes. The Gateway has separate rate limits for registration, OTP-related requests, login, and password reset.
+The Gateway's public-route allowlist includes registration, email verification, resend, login, refresh, MFA login completion, forgot-password, and reset-password. Other identity routes require a valid access JWT. Identity Service also enforces authentication on protected routes. The Gateway has separate rate limits for registration, OTP-related requests, login, and password reset.
 
 For support and troubleshooting, keep the response `correlationId` and use it to trace logs across the Gateway and services. Never log or share raw passwords, access tokens, refresh tokens, recovery codes, or OTPs.
 
@@ -413,11 +428,10 @@ For support and troubleshooting, keep the response `correlationId` and use it to
 These are implementation constraints in the current source, not expected client configuration:
 
 1. **Notification delivery depends on provider configuration.** OTPs are sent through Notification Service using a single-use internal handoff for both the code and destination; the raw values are not placed in Kafka. Configure a working SMTP/SMS provider and matching notification templates for delivery to succeed. For local Gmail SMTP, set `SMTP_USER` and a newly generated Google App Password in `SMTP_PASSWORD`; credentials have no source-controlled defaults.
-2. **MFA login cannot be completed.** Password login returns an MFA-required response without access credentials, while the available challenge/verification APIs require a bearer token. No unauthenticated MFA completion endpoint issues the final tokens.
-3. **JWT issuer configuration must be consistent.** Access tokens use the issuer and audience configured under `tradebridge.security.jwt`; the Gateway validates against its corresponding `tradebridge.gateway.jwt` settings. Keep `JWT_ISSUER` and `JWT_AUDIENCE` aligned across Identity Service and the Gateway. Existing tokens issued with an earlier issuer value will be rejected and users must log in again after configuration changes.
-4. **Terms acceptance is not fully enforced.** The registration DTO checks that a supplied non-null value is `"true"`, but does not require the field to be present, and the registration service does not check it separately.
+2. **JWT issuer configuration must be consistent.** Access tokens use the issuer and audience configured under `tradebridge.security.jwt`; the Gateway validates against its corresponding `tradebridge.gateway.jwt` settings. Keep `JWT_ISSUER` and `JWT_AUDIENCE` aligned across Identity Service and the Gateway. Existing tokens issued with an earlier issuer value will be rejected and users must log in again after configuration changes.
+3. **Terms acceptance is not fully enforced.** The registration DTO checks that a supplied non-null value is `"true"`, but does not require the field to be present, and the registration service does not check it separately.
 
-Consequently, production setup requires configured notification providers and a consistent JWT issuer. An MFA-enabled login additionally requires a public, time-limited MFA challenge completion flow that issues tokens only after successful verification.
+Consequently, production setup requires configured notification providers and a consistent JWT issuer.
 
 ## 11. Source code map
 

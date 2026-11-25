@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,6 +46,7 @@ class AuthenticationServiceTest {
     @Mock private IdentityAuditRecordRepository auditRepository;
     @Mock private SessionService sessionService;
     @Mock private TokenService tokenService;
+    @Mock private MfaService mfaService;
 
     private PasswordEncoder passwordEncoder;
     private AuthenticationService service;
@@ -64,6 +66,7 @@ class AuthenticationServiceTest {
         service = new AuthenticationService(userRepository, credentialRepository,
                 userRoleRepository, roleRepository, auditRepository,
                 passwordEncoder, sessionService, tokenService,
+                mfaService,
                 new UserMapper(), props);
 
         user = new User(UUID.randomUUID(), "Test", "User", email, "+27123456789", "ZA", "EN");
@@ -157,5 +160,52 @@ class AuthenticationServiceTest {
 
         TokenResponse response = service.login(new LoginRequest("+27123456789", password, null, null));
         assertThat(response.accessToken()).isEqualTo("a");
+    }
+
+    @Test
+    void completeMfaLogin_verifiesCodeRotatesSessionAndIssuesTokens() {
+        user.setMfaEnabled(true);
+        UUID challengeId = UUID.randomUUID();
+        UserSession pendingSession = new UserSession(challengeId, user.getId(),
+                "device", "127.0.0.1", "agent", java.time.Instant.now().plusSeconds(60));
+        UserSession authenticatedSession = new UserSession(UUID.randomUUID(), user.getId(),
+                "device", "127.0.0.1", "agent", java.time.Instant.now().plusSeconds(60));
+        TokenResponse expected = new TokenResponse("access", "Bearer", 900, "refresh",
+                2592000, false, null,
+                new TokenResponse.UserSummary(user.getId().toString(), email, "Test", "User",
+                        java.util.List.of("CUSTOMER")));
+        when(sessionService.findRecentActiveMfaSession(eq(challengeId), any()))
+                .thenReturn(pendingSession);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(sessionService.createSession(user.getId(), "device", "agent", "127.0.0.1"))
+                .thenReturn(authenticatedSession);
+        when(tokenService.issueTokens(user, authenticatedSession)).thenReturn(expected);
+
+        TokenResponse actual = service.completeMfaLogin(challengeId, "123456");
+
+        assertThat(actual).isEqualTo(expected);
+        verify(mfaService).verifyLoginCode(user.getId(), "123456");
+        verify(sessionService).revokeSession(challengeId, user.getId());
+        verify(tokenService).issueTokens(user, authenticatedSession);
+    }
+
+    @Test
+    void completeMfaLogin_invalidCodeDoesNotIssueTokensOrRotateSession() {
+        UUID challengeId = UUID.randomUUID();
+        UserSession pendingSession = new UserSession(challengeId, user.getId(),
+                "device", "127.0.0.1", "agent", java.time.Instant.now().plusSeconds(60));
+        when(sessionService.findRecentActiveMfaSession(eq(challengeId), any()))
+                .thenReturn(pendingSession);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        doThrow(new com.tradebridge.common.exception.ValidationException("Invalid MFA code",
+                java.util.List.of(new com.tradebridge.common.response.FieldError("code", "Invalid MFA code"))))
+                .when(mfaService).verifyLoginCode(user.getId(), "000000");
+
+        assertThatThrownBy(() -> service.completeMfaLogin(challengeId, "000000"))
+                .isInstanceOf(com.tradebridge.common.exception.ValidationException.class);
+
+        verify(sessionService, never()).revokeSession(any(), any());
+        verify(sessionService, never()).createSession(any(), any(), any(), any());
+        verify(tokenService, never()).issueTokens(any(), any());
     }
 }

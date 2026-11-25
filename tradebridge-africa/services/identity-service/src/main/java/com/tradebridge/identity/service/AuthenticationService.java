@@ -52,6 +52,7 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final SessionService sessionService;
     private final TokenService tokenService;
+    private final MfaService mfaService;
     private final UserMapper userMapper;
     private final IdentityProperties properties;
 
@@ -63,6 +64,7 @@ public class AuthenticationService {
                                  PasswordEncoder passwordEncoder,
                                  SessionService sessionService,
                                  TokenService tokenService,
+                                 MfaService mfaService,
                                  UserMapper userMapper,
                                  IdentityProperties properties) {
         this.userRepository = userRepository;
@@ -73,6 +75,7 @@ public class AuthenticationService {
         this.passwordEncoder = passwordEncoder;
         this.sessionService = sessionService;
         this.tokenService = tokenService;
+        this.mfaService = mfaService;
         this.userMapper = userMapper;
         this.properties = properties;
     }
@@ -139,6 +142,26 @@ public class AuthenticationService {
         audit(user.getId(), user.getId(), IdentityAction.USER_LOGIN_SUCCESS,
                 Map.of("mfaRequired", false));
         return response;
+    }
+
+    @Transactional
+    public TokenResponse completeMfaLogin(UUID challengeId, String code) {
+        UserSession pendingSession = sessionService.findRecentActiveMfaSession(
+                challengeId, properties.getMfa().getLoginChallengeTtl());
+        User user = userRepository.findById(pendingSession.getUserId())
+                .filter(User::isMfaEnabled)
+                .orElseThrow(() -> new UnauthorizedException(ErrorCode.TOKEN_INVALID,
+                        "MFA challenge is invalid or expired"));
+
+        mfaService.verifyLoginCode(user.getId(), code);
+        sessionService.revokeSession(pendingSession.getId(), user.getId());
+
+        UserSession authenticatedSession = sessionService.createSession(
+                user.getId(),
+                pendingSession.getDeviceName(),
+                pendingSession.getUserAgent(),
+                pendingSession.getIpAddress());
+        return tokenService.issueTokens(user, authenticatedSession);
     }
 
     @Transactional(readOnly = true)
