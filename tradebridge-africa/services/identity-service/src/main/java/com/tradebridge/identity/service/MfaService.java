@@ -262,6 +262,22 @@ public class MfaService {
         audit(userId, userId, IdentityAction.MFA_CHALLENGE_PASSED, Map.of());
     }
 
+    @Transactional
+    public void verifyLoginCode(UUID userId, String code) {
+        MfaFactor factor = mfaRepository.findByUserIdAndFactorTypeAndEnabledTrue(
+                        userId, MfaFactorType.TOTP)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_STATE,
+                        "TOTP MFA is not enabled"));
+
+        String secret = decodeStoredSecret(factor.getSecretEncrypted());
+        if (!codeVerifier.isValidCode(secret, code) && !consumeRecoveryCode(userId, code)) {
+            audit(userId, userId, IdentityAction.MFA_CHALLENGE_FAILED, Map.of());
+            throw new ValidationException("Invalid MFA code",
+                    List.of(new com.tradebridge.common.response.FieldError("code", "Invalid MFA code")));
+        }
+        audit(userId, userId, IdentityAction.MFA_CHALLENGE_PASSED, Map.of());
+    }
+
     // ------------------------------------------------------------------ recovery
 
     @Transactional

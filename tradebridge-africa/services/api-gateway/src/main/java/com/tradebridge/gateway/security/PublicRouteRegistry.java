@@ -42,6 +42,7 @@ public class PublicRouteRegistry {
             new Rule("POST", Pattern.compile("^/api/v1/identity/resend-verification$")),
             new Rule("POST", Pattern.compile("^/api/v1/identity/login$")),
             new Rule("POST", Pattern.compile("^/api/v1/identity/refresh$")),
+            new Rule("POST", Pattern.compile("^/api/v1/identity/mfa/verify$")),
             new Rule("POST", Pattern.compile("^/api/v1/identity/password/forgot$")),
             new Rule("POST", Pattern.compile("^/api/v1/identity/password/reset$")),
 

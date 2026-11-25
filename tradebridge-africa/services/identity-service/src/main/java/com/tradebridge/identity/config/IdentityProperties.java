@@ -36,6 +36,7 @@ import java.util.List;
  *     totp-period: 30s
  *     totp-digits: 6
  *     recovery-code-count: 10
+ *     login-challenge-ttl: 5m
  *   lockout:
  *     threshold: 5
  *     window: 15m
@@ -135,6 +136,7 @@ public class IdentityProperties {
         private Duration totpPeriod = Duration.ofSeconds(30);
         private int totpDigits = 6;
         private int recoveryCodeCount = 10;
+        private Duration loginChallengeTtl = Duration.ofMinutes(5);
         public String getTotpIssuer() { return totpIssuer; }
         public void setTotpIssuer(String v) { this.totpIssuer = v; }
         public Duration getTotpPeriod() { return totpPeriod; }
@@ -143,6 +145,8 @@ public class IdentityProperties {
         public void setTotpDigits(int v) { this.totpDigits = v; }
         public int getRecoveryCodeCount() { return recoveryCodeCount; }
         public void setRecoveryCodeCount(int v) { this.recoveryCodeCount = v; }
+        public Duration getLoginChallengeTtl() { return loginChallengeTtl; }
+        public void setLoginChallengeTtl(Duration d) { this.loginChallengeTtl = d; }
     }
 
     public static class Lockout {

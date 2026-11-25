@@ -145,6 +145,7 @@ tradebridge:
       totp-period: 30s
       totp-digits: 6
       recovery-code-count: 10
+      login-challenge-ttl: 5m
     lockout:
       threshold: 5
       window: 15m

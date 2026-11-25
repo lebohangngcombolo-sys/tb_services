@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -81,6 +82,19 @@ public class SessionService {
         UserSession session = sessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> ResourceNotFoundException.of("Session", sessionId));
         revokeInternal(session, UUID.fromString(CorrelationContext.currentOrGenerate()));
+    }
+
+    @Transactional(readOnly = true)
+    public UserSession findRecentActiveMfaSession(UUID sessionId, Duration challengeTtl) {
+        Instant now = Instant.now();
+        UserSession session = sessionRepository.findByIdForUpdate(sessionId)
+                .filter(candidate -> candidate.isActiveAt(now))
+                .filter(candidate -> candidate.getCreatedAt() != null
+                        && !candidate.getCreatedAt().isAfter(now)
+                        && candidate.getCreatedAt().plus(challengeTtl).isAfter(now))
+                .orElseThrow(() -> new BusinessException(ErrorCode.TOKEN_INVALID,
+                        "MFA challenge is invalid or expired"));
+        return session;
     }
 
     @Transactional

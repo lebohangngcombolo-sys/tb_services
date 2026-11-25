@@ -39,6 +39,7 @@ public class IdentitySecurityConfig {
                                 "/api/v1/identity/resend-verification",
                                 "/api/v1/identity/login",
                                 "/api/v1/identity/refresh",
+                                "/api/v1/identity/mfa/verify",
                                 "/api/v1/identity/password/forgot",
                                 "/api/v1/identity/password/reset").permitAll()
                         .requestMatchers("/api/v1/identity/internal/**").permitAll()

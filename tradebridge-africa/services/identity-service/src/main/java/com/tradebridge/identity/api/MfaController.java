@@ -2,10 +2,13 @@ package com.tradebridge.identity.api;
 
 import com.tradebridge.common.response.ApiResponse;
 import com.tradebridge.common.response.ResponseFactory;
+import com.tradebridge.identity.api.dto.request.MfaLoginVerifyRequest;
 import com.tradebridge.identity.api.dto.request.MfaSetupRequest;
 import com.tradebridge.identity.api.dto.request.MfaVerifyRequest;
 import com.tradebridge.identity.api.dto.response.MfaSetupResponse;
 import com.tradebridge.identity.api.dto.response.MfaStatusResponse;
+import com.tradebridge.identity.api.dto.response.TokenResponse;
+import com.tradebridge.identity.service.AuthenticationService;
 import com.tradebridge.identity.service.MfaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,9 +38,11 @@ import java.util.UUID;
 public class MfaController {
 
     private final MfaService mfaService;
+    private final AuthenticationService authenticationService;
 
-    public MfaController(MfaService mfaService) {
+    public MfaController(MfaService mfaService, AuthenticationService authenticationService) {
         this.mfaService = mfaService;
+        this.authenticationService = authenticationService;
     }
 
     @PostMapping("/setup/totp")
@@ -76,9 +81,18 @@ public class MfaController {
     }
 
     @PostMapping("/verify")
-    @Operation(summary = "Verify an MFA challenge")
-    public ApiResponse<Void> verify(@AuthenticationPrincipal Jwt jwt,
-                                    @Valid @RequestBody MfaVerifyRequest request) {
+    @PreAuthorize("permitAll()")
+    @Operation(summary = "Complete login using a TOTP or recovery code")
+    public ApiResponse<TokenResponse> verify(@Valid @RequestBody MfaLoginVerifyRequest request) {
+        var tokens = authenticationService.completeMfaLogin(
+                UUID.fromString(request.challengeId()), request.code());
+        return ResponseFactory.ok(tokens, "MFA verification successful");
+    }
+
+    @PostMapping("/challenge/verify")
+    @Operation(summary = "Verify an authenticated email OTP challenge")
+    public ApiResponse<Void> verifyEmailChallenge(@AuthenticationPrincipal Jwt jwt,
+                                                  @Valid @RequestBody MfaVerifyRequest request) {
         UUID userId = UUID.fromString(jwt.getSubject());
         mfaService.verifyChallenge(userId, request.code());
         return ResponseFactory.ok("MFA challenge passed");
